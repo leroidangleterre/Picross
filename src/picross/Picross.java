@@ -11,6 +11,8 @@ public class Picross {
         Grid g = new Grid("grid0.txt");
 
         g.printGrid();
+
+        g.solve();
     }
 
 }
