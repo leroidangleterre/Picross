@@ -8,11 +8,16 @@ public class Picross {
 
     public static void main(String[] args) {
 
-        Grid g = new Grid("grid0.txt");
+//        Grid g = new Grid("grid0.txt");
+//
+//        g.printGrid();
+//
+//        g.solve();
+        int tab1[] = DamerauLevenshtein.stringToTab("conjuguaison");
+        int tab2[] = DamerauLevenshtein.stringToTab("conjugaisons");
 
-        g.printGrid();
-
-        g.solve();
+        int distance = DamerauLevenshtein.distance(tab1, tab2);
+        System.out.println("distance: " + distance);
     }
 
 }
