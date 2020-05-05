@@ -466,14 +466,10 @@ class Grid {
         // The current state of the grid portion we are examining
         int currentGridExtract[] = extractLineOrCol(lineIndex, true);
 
-        int distance = DamerauLevenshtein.distanceAddOnly(tabHints, currentGridExtract);
+        boolean possible = DamerauLevenshtein.canConvert(tabHints, currentGridExtract);
 
-        if (distance == 0) {
-// The line is correct and complete
-            return true;
-        }
-
-        return true;
+        System.out.println((possible ? "P" : "Imp") + "ossible to convert line " + lineIndex);
+        return possible;
     }
 
     private boolean colIsCorrect(int col) {

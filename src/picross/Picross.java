@@ -13,11 +13,11 @@ public class Picross {
 //        g.printGrid();
 //
 //        g.solve();
-        int tab1[] = DamerauLevenshtein.stringToTab("conjuguaison");
-        int tab2[] = DamerauLevenshtein.stringToTab("conjugaisons");
+        int hintTab____[] = {1, 0, 1, 1, 1, 0, 0, 1};
 
-        int distance = DamerauLevenshtein.distance(tab1, tab2);
-        System.out.println("distance: " + distance);
+        int currentLine[] = {1, 0, 0, 1, 0, 0, 0, 0, 0};
+
+        System.out.println("Test: " + DamerauLevenshtein.canConvert(hintTab____, currentLine) + ";");
     }
 
 }
