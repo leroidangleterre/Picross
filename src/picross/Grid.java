@@ -9,6 +9,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  *
@@ -16,9 +17,9 @@ import java.io.IOException;
  */
 class Grid {
 
-    public static char notProcessedCharacter = '.';
+    public static char notProcessedCharacter = ' ';
     public static char filledCharacter = 0x0870; // Nice square but empty
-    public static char emptyCharacter = 'X';
+    public static char emptyCharacter = '.';
 
     private static final int NOT_PROCESSED = 0;
     private static final int FILLED = 1;
@@ -29,6 +30,8 @@ class Grid {
     int grid[][];
     int lineHints[][];
     int colHints[][];
+    boolean lineChecks[];
+    boolean colChecks[];
 
     public Grid(String filename) {
         try {
@@ -42,7 +45,7 @@ class Grid {
                 if (text.contains("lines")) {
                     nbLines = Integer.valueOf(text.split(" ")[0]);
                     nbColumns = Integer.valueOf(text.split(" ")[2]);
-                    lineHints = new int[nbLines][]; // NB: see if we can do nbLines/2
+                    lineHints = new int[nbLines][];
                     colHints = new int[nbColumns][];
                     for (int i = 0; i < nbLines; i++) {
                         lineHints[i] = new int[nbColumns];
@@ -50,6 +53,8 @@ class Grid {
                     for (int j = 0; j < nbColumns; j++) {
                         colHints[j] = new int[nbLines];
                     }
+                    lineChecks = new boolean[nbLines];
+                    colChecks = new boolean[nbColumns];
                     // Start reading the lines
                     isReadingLines = true;
                     lineOrColIndex = 0;
@@ -87,14 +92,6 @@ class Grid {
                     grid[line][col] = NOT_PROCESSED;
                 }
             }
-
-            System.out.println("Filling grid for test purposes only");
-            grid[2][2] = FILLED;
-            grid[2][4] = FILLED;
-            grid[2][5] = FILLED;
-            grid[2][6] = FILLED;
-            grid[0][2] = FILLED;
-            grid[9][2] = FILLED;
 
         } catch (FileNotFoundException e) {
             System.out.println("Error: file <" + filename + "> not found");
@@ -171,7 +168,11 @@ class Grid {
                     break;
                 }
             }
-            System.out.println("|");
+            System.out.print("|");
+            if (lineChecks[line] == false) {
+                System.out.print(" ! ");
+            }
+            System.out.println("");
         }
 
         for (int i = 0; i < lineHintStartIndex; i++) {
@@ -179,7 +180,11 @@ class Grid {
         }
         System.out.print("  ");
         for (int i = 0; i < nbColumns; i++) {
-            System.out.print("-  ");
+            if (colChecks[i] == false) {
+                System.out.print("!  ");
+            } else {
+                System.out.print("ok ");
+            }
         }
         System.out.println("");
     }
@@ -348,7 +353,6 @@ class Grid {
         int line = squareIndex / nbColumns;
         int col = squareIndex - line * nbColumns;
 
-        System.out.println("Solving line " + line + ", col " + col);
         this.printGrid();
         try {
             System.in.read();
@@ -377,9 +381,11 @@ class Grid {
                 if (isCorrect()) {
                     return solve(squareIndex + 1, true); // Go to the next square
                 } else {
-                    return solve(squareIndex, forward); // Try another value for the current square
+                    grid[line][col] = NOT_PROCESSED;
+                    return solve(squareIndex - 1, false); // Already tested filled. Now empty does not work, must backtrack.
                 }
             case EMPTY:
+                System.out.println("found an empty square.");
                 grid[line][col] = NOT_PROCESSED;
                 return solve(squareIndex - 1, false); // BACKTRACK
             }
@@ -394,22 +400,22 @@ class Grid {
      * @return false if an error is visible, true otherwise.
      */
     private boolean isCorrect() {
-        System.out.println("Testing correctness of lines");
+        boolean isCorrect = true;
         for (int line = 0; line < nbLines; line++) {
             if (!lineIsCorrect(line)) {
                 // Any error in any line makes the grid incorrect.
-                return false;
+                isCorrect = false;
             }
         }
         for (int col = 0; col < nbColumns; col++) {
             if (!colIsCorrect(col)) {
                 // Any error in any column makes the grid incorrect.
-                return false;
+                isCorrect = false;
             }
         }
 
         // If no line or column is incorrect, then the grid is correct.
-        return true;
+        return isCorrect;
     }
 
     /**
@@ -458,22 +464,35 @@ class Grid {
      */
     private boolean lineIsCorrect(int lineIndex) {
 
-        System.out.println("    Testing correctness of line " + lineIndex);
-
         // The hints converted as an array
         int tabHints[] = makeTabFromHints(lineIndex, true);
-
         // The current state of the grid portion we are examining
         int currentGridExtract[] = extractLineOrCol(lineIndex, true);
+        boolean possible = canConvert(tabHints, currentGridExtract);
 
-        boolean possible = DamerauLevenshtein.canConvert(tabHints, currentGridExtract);
-
-        System.out.println((possible ? "P" : "Imp") + "ossible to convert line " + lineIndex);
+        if (possible) {
+            lineChecks[lineIndex] = true;
+        } else {
+            lineChecks[lineIndex] = false;
+        }
         return possible;
     }
 
-    private boolean colIsCorrect(int col) {
-        return true;
+    private boolean colIsCorrect(int colIndex) {
+
+        int hintsTab[] = makeTabFromHints(colIndex, false);
+
+        int currentGridExtract[] = extractLineOrCol(colIndex, false);
+
+        boolean possible = canConvert(hintsTab, currentGridExtract);
+
+        if (possible) {
+            colChecks[colIndex] = true;
+        } else {
+            colChecks[colIndex] = false;
+        }
+
+        return possible;
     }
 
     /**
@@ -482,20 +501,21 @@ class Grid {
      * {1, 0, 1, 1, 1, 0, 1, 1, 0,..., 0} (a block of 1, a zero, a block of 3, a
      * zero, ...)
      *
-     * @param line the index of the line or column
+     * @param index the index of the line or column
      * @param processLine when true, the function processes a line of the grid;
      * when false, a column.
      * @return
      */
-    private int[] makeTabFromHints(int line, boolean processLine) {
+    private int[] makeTabFromHints(int index, boolean processLine) {
+
         int tab[];
         int indexInTab = 0;
         int hintsToConvert[];
         if (processLine) {
-            hintsToConvert = lineHints[line];
+            hintsToConvert = lineHints[index];
             tab = new int[nbColumns];
         } else {
-            hintsToConvert = colHints[line];
+            hintsToConvert = colHints[index];
             tab = new int[nbLines];
         }
         for (int hint : hintsToConvert) {
@@ -505,7 +525,6 @@ class Grid {
                     tab[indexInTab] = 1;
                     indexInTab++;
                 }
-                tab[indexInTab] = 0; // End of the block;
                 indexInTab++;
             }
         }
@@ -527,13 +546,200 @@ class Grid {
             array = new int[nbColumns];
             for (int col = 0; col < nbColumns; col++) {
                 array[col] = grid[index][col];
+                // EMPTY and NOT_PROCESSED are treated the same here.
+                if (array[col] == EMPTY) {
+                    array[col] = NOT_PROCESSED;
+                }
             }
         } else {
             array = new int[nbLines];
             for (int line = 0; line < nbLines; line++) {
-                array[line] = grid[index][line];
+                array[line] = grid[line][index];
+                // EMPTY and NOT_PROCESSED are treated the same here.
+                if (array[line] == EMPTY) {
+                    array[line] = NOT_PROCESSED;
+                }
             }
         }
         return array;
+    }
+
+    /**
+     * Determine whether tab0 can be transformed into tab1.
+     * Only certain modifications may be applied.
+     *
+     * We use the A* algorithm to find a path from tab0 to tab1 using only the
+     * available operations.
+     *
+     * @param hintsTab the tested tab
+     * @param testedLine the target tab
+     * @return true if we can find a series of modifications that change tab0
+     * into tab1, false otherwise.
+     *
+     */
+    public static boolean canConvert(int hintsTab[], int testedLine[]) {
+
+        ArrayList<AstarNode> closedList = new ArrayList<>();
+        ArrayList<AstarNode> openList = new ArrayList<>();
+
+        AstarNode initNode = new AstarNode(hintsTab, null, 0);
+        openList.add(initNode);
+
+        int maxLength = testedLine.length;
+
+        boolean loop = true;
+        boolean result = false;
+        while (loop) {
+
+            // Extract the first element
+            AstarNode currentNode = openList.remove(0);
+
+            if (tabsMatch(currentNode.getArray(), testedLine)) {
+                // Found the solution
+                result = true;
+                loop = false;
+
+                return true;
+            }
+
+            ArrayList<int[]> neighbors = getNeighbors(currentNode.getArray(), maxLength);
+            closedList.add(currentNode);
+            for (int[] neighbor : neighbors) {
+                AstarNode neighborNode = new AstarNode(neighbor, currentNode, currentNode.getCost());
+                if (!listContains(openList, neighborNode)
+                        && !listContains(closedList, neighborNode)) {
+                    addWithoutDoubles(openList, neighborNode);
+                }
+            }
+            if (openList.isEmpty()) {
+                // No other tab to evaluate: no solution
+                result = false;
+                loop = false;
+            }
+        }
+
+        if (!result) {
+            System.out.print("ERROR Converting ");
+            for (int i = 0; i < hintsTab.length; i++) {
+                System.out.print(hintsTab[i] + " ");
+            }
+            System.out.print("to ");
+            for (int i = 0; i < testedLine.length; i++) {
+                System.out.print(testedLine[i] + " ");
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Compare two arrays
+     *
+     * @param tab0
+     * @param tab1
+     * @return true when the dimension is the same and all pairs of elements
+     * match.
+     */
+    public static boolean tabsAreEqual(int tab0[], int tab1[]) {
+
+        if (tab0.length != tab1.length) {
+            return false;
+        }
+        for (int i = 0; i < tab0.length; i++) {
+            if (tab0[i] != tab1[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Find all the arrays we can get by performing an atomic operation on an
+     * array, while maintaining a length no greater than maxLength.
+     *
+     */
+    public static ArrayList<int[]> getNeighbors(int tab[], int maxLength) {
+
+        ArrayList<int[]> neighbors = new ArrayList<>();
+        int length = tab.length;
+
+        int[] clone;
+
+        // Insert a '0' between a '0' and a '1': "01" becomes "001"
+        for (int i = 0; i < length - 1; i++) {
+            if (tab[i] == 0 && tab[i + 1] == 1) {
+                clone = tab.clone();
+                // Shift the second part of the array to the right
+                for (int j = length - 1; j > i; j--) {
+                    clone[j] = clone[j - 1];
+                }
+                clone[i] = 0;
+                neighbors.add(clone);
+            }
+        }
+
+        // Add a '0' at the beginning of the tab. Only possible if that does not push a '1' out.
+        if (tab[length - 1] != 1) {
+            clone = tab.clone();
+            // Shift everything
+            for (int i = length - 1; i > 0; i--) {
+                clone[i] = clone[i - 1];
+            }
+            clone[0] = 0;
+            neighbors.add(clone);
+        }
+
+        return neighbors;
+    }
+
+    // Add the given node to the list, only if the list does not already contain a node with the given array.
+    private static void addWithoutDoubles(ArrayList<AstarNode> list, AstarNode newNode) {
+        if (!listContains(list, newNode)) {
+            list.add(newNode);
+        }
+    }
+
+    private static boolean listContains(ArrayList<AstarNode> list, AstarNode neighborNode) {
+
+        int[] testedArray = neighborNode.getArray();
+
+        for (AstarNode node : list) {
+            int[] nodeArray = node.getArray();
+            boolean hasDouble = true;
+            // Check the elements of the array.
+            for (int i = 0; i < testedArray.length; i++) {
+                if (testedArray[i] != nodeArray[i]) {
+                    // This node is not a copy of the new node.
+                    hasDouble = false;
+                }
+            }
+            if (hasDouble) {
+                return true;
+            }
+        }
+        // No existing node is a copy of the new one.
+        return false;
+    }
+
+    /**
+     * Compare two arrays
+     *
+     * @param tab0
+     * @param tab1
+     * @return true when the dimension is the same and every '1' in tab1 has a
+     * matching '1' in tab0. We do not care about other digits of tab0.
+     */
+    private static boolean tabsMatch(int[] tab0, int[] tab1) {
+
+        if (tab0.length != tab1.length) {
+            return false;
+        }
+        for (int i = 0; i < tab0.length; i++) {
+            if (tab1[i] == 1 && tab0[i] != 1) {
+                // Found a '1' in tab1 that does not have a matching '1' in tab0;
+                return false;
+            }
+        }
+        return true;
     }
 }
