@@ -12,7 +12,7 @@ public class AstarNode {
     private int[] array;
 
     // The cost necessary to reach this array
-    private int cost;
+    private int score;
 
     // The node that was modified to reach the current node
     private AstarNode parent;
@@ -20,20 +20,31 @@ public class AstarNode {
     private static int NB_ASTARNODES_CREATED = 0;
     private int id;
 
-    public AstarNode(int paramArray[], AstarNode newParent, int newCost) {
+    private String optionText;
+
+    public AstarNode(int paramArray[], AstarNode newParent) {
+        this(paramArray, newParent, Integer.MAX_VALUE, "_creation");
+    }
+
+    public AstarNode(int paramArray[], AstarNode newParent, int score, String options) {
         this.array = paramArray;
         this.parent = newParent;
-        this.cost = newCost;
+        this.score = score;
         this.id = NB_ASTARNODES_CREATED;
         NB_ASTARNODES_CREATED++;
+        optionText = options;
     }
 
     public int[] getArray() {
         return this.array;
     }
 
-    public int getCost() {
-        return this.cost;
+    public void setScore(int newScore) {
+        this.score = newScore;
+    }
+
+    public int getScore() {
+        return this.score;
     }
 
     public String toString() {
@@ -41,10 +52,25 @@ public class AstarNode {
                 + (id < 10 ? " " : "")
                 + " of parent " + (parent == null ? "__" : parent.id
                         + (parent.id < 10 ? " " : ""))
-                + ": ";
+                + ": {";
         for (int i = 0; i < array.length; i++) {
-            res += array[i] + " ";
+//            res += array[i] + " ";
+            switch (array[i]) {
+            case Grid.EMPTY:
+                res += Grid.emptyCharacter;
+                break;
+            case Grid.FILLED:
+                res += Grid.filledCharacter;
+                break;
+//            case Grid.NOT_PROCESSED:
+//                res += Grid.notProcessedCharacter;
+//                break;
+            default:
+                break;
+            }
+            res += " ";
         }
+        res += "} (d=" + this.score + ") " + optionText;
         return res;
     }
 

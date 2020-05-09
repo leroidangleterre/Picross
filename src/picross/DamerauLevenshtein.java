@@ -63,8 +63,7 @@ public class DamerauLevenshtein {
 
         mat[0][0] = 0;
 
-        printMatrix(mat);
-
+//        printMatrix(mat);
         int costForDeletion = deletionAuthorized ? 1 : 1000;
         int costForInsertion = insertionAuthorized ? 1 : 1000;
         int costForSubstitution = substitutionAuthorized ? 1 : 1000;
@@ -91,10 +90,9 @@ public class DamerauLevenshtein {
             }
         }
 
-        System.out.println("");
-        printMatrix(mat);
-        System.out.println("");
-
+//        System.out.println("");
+//        printMatrix(mat);
+//        System.out.println("");
         return mat[length1][length2];
     }
 
