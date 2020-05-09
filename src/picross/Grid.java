@@ -337,18 +337,18 @@ class Grid {
     }
 
     private void waitForKeypressed() {
-        STEP++;
-        COUNT++;
-        if (STEP >= NB_STEPS_BEFORE_DISPLAY) {
-            try {
-                System.out.println("press key");
-                System.in.read();
-            } catch (IOException e) {
-                System.out.println("grid wait error...");
-            }
-            STEP = 0;
-            MUST_DISPLAY = true;
+//        STEP++;
+//        COUNT++;
+//        if (STEP >= NB_STEPS_BEFORE_DISPLAY) {
+        try {
+            System.out.println("press key");
+            System.in.read();
+        } catch (IOException e) {
+            System.out.println("grid wait error...");
         }
+//        STEP = 0;
+//        MUST_DISPLAY = true;
+//        }
     }
 
     /**
@@ -373,11 +373,17 @@ class Grid {
      * @return
      */
     private boolean solve(int squareIndex) {
+        System.out.println("solve(" + squareIndex + ");");
+
+        if (squareIndex == 4) {
+            System.out.println("4444444444444444");
+        }
 
         int line = squareIndex / nbColumns;
         int col = squareIndex - line * nbColumns;
 
-//        this.printGrid(line, col);
+        this.printGrid(line, col);
+
         waitForKeypressed();
 
         if (line >= nbLines) {
@@ -386,29 +392,29 @@ class Grid {
             return true;
         }
 
-//        System.out.println("Filling the first square");
         // Try to fill the square first
         grid[line][col] = FILLED;
         if (isCorrect(line, col) && solve(squareIndex + 1)) {
             return true;
         }
-        if (line == nbLines - 1) {
-            this.printGrid(line, col);
-        }
+
+        this.printGrid(line, col);
         waitForKeypressed();
 
-        if (MUST_DISPLAY) {
-            System.out.println("solve(" + squareIndex + ", " + COUNT + ");");
-            this.printGrid(line, col);
-            MUST_DISPLAY = false;
-        }
-
+//        if (MUST_DISPLAY) {
+//            System.out.println("solve(" + squareIndex + ", " + COUNT + ");");
+//        System.out.println("printing grid");
+//        this.printGrid(line, col);
+//            MUST_DISPLAY = false;
+//        }
         // If the function has not returned yet, then no solution was found
         // with the current square filled. We must try empty.
         grid[line][col] = EMPTY;
         if (isCorrect(line, col) && solve(squareIndex + 1)) {
             return true;
         }
+
+        this.printGrid(line, col);
 
         // No solution was found for this square being either filled or empty,
         // the grid has no solution with the previous combination.
@@ -423,46 +429,60 @@ class Grid {
      * @return false if an error is visible, true otherwise.
      */
     private boolean isCorrect(int currentLine, int currentCol) {
-//        System.out.println("check is correct...");
-        boolean isCorrect = true;
-        for (int line = 0; line < nbLines; line++) {
 
-            boolean lineIsComplete = (line < currentLine || ((line == currentLine) && (currentCol == nbColumns - 1)));
+        int nbBlocks = getBlocksInLine(currentLine).length;
+        int nbHints = trimArray(lineHints[currentLine]).length;
+        System.out.println(nbBlocks + " blocks, " + nbHints + " hints");
 
-            if (!lineIsCorrect(line, lineIsComplete)) {
-                // Any error in any line makes the grid incorrect.
-//                System.out.println("    line " + line + " is not correct");
-                isCorrect = false;
+        if (grid[currentLine][currentCol] == FILLED) {
+            // Check that we did not create more line-groups than necessary
+            if (nbBlocks > nbHints) {
+                return false;
+            }
+
+            // Check that the current group is not too long.
+            int currentSize = getBlocksInLine(currentLine)[nbBlocks - 1];// Last currently changing block
+            int hint = lineHints[currentLine][nbBlocks - 1]; // Corresponding hint
+            if (currentSize > hint) {
+                // Block is too long for hint.
+                return false;
+            }
+        } else {
+            // Check that the current block is not too short.
+            int currentSize = getBlocksInLine(currentLine)[nbBlocks - 1];// Last currently changing block
+            int hint = lineHints[currentLine][nbBlocks - 1]; // Corresponding hint
+            if (currentSize < hint) {
+                // Block is too short for hint.
+                return false;
             }
         }
-        for (int col = 0; col < nbColumns; col++) {
 
-            boolean colIsComplete = (currentLine == nbLines - 1);
-//            if (currentCol == 3) {
-//                System.out.println("column 3: isComplete ? " + colIsComplete);
-//            }
-
-            if (!colIsCorrect(col, colIsComplete)) {
-                // Any error in any column makes the grid incorrect.
-                isCorrect = false;
-//                System.out.println("    col " + col + " is not correct");
-            }
+        if (nbBlocks > nbHints) {
+            // Too many blocks
+            return false;
         }
 
-//        System.out.println("check is correct: " + isCorrect + ".");
-        // If no line or column is incorrect, then the grid is correct.
-        return isCorrect;
+        if (currentCol == nbColumns - 1) {
+            // Line is complete, must verify the hints.
+            for (int i = 0; i < nbBlocks; i++) {
+                if (getBlocksInLine(currentLine)[i] != lineHints[currentLine][i]) {
+                    // This block does not have the required length.
+                    return false;
+                }
+            }
+        }
+        // If we reach this point, then no mistake has been found.
+        return true;
     }
 
-    /**
-     * Check that the grid is completely solved.
-     *
-     * @return true when all hints are verified.
-     */
-    private boolean isSolved() {
-        return false;
-    }
-
+//    /**
+//     * Check that the grid is completely solved.
+//     *
+//     * @return true when all hints are verified.
+//     */
+//    private boolean isSolved() {
+//        return false;
+//    }
     /**
      * List the sizes of the blocks in a given line.
      *
@@ -488,7 +508,12 @@ class Grid {
                 // Scanned another empty square between blocks.
             }
         }
-        return tab;
+        if (grid[line][nbColumns - 1] == FILLED) {
+            System.out.println("LastBlock is at end of array");
+            // The last block terminates not with a EMPTY, but with the end of the array.
+            tab[currentBlockIndex] = currentBlockSize;
+        }
+        return trimArray(tab);
     }
 
     /**
