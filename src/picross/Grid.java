@@ -227,6 +227,7 @@ class Grid {
         return colHints[col][rank];
     }
 
+
     /**
      * Get the n-th hint for the given line.
      *
@@ -240,6 +241,7 @@ class Grid {
         }
         return lineHints[line][rank];
     }
+
 
     /**
      * Shift all values toward the end of a table.
@@ -266,6 +268,7 @@ class Grid {
         }
     }
 
+
     private boolean tabIsOnlyZeroes(int[] tab) {
         for (int i = 0; i < tab.length; i++) {
             if (tab[i] != 0) {
@@ -276,12 +279,16 @@ class Grid {
     }
 
     private void waitForKeypressed() {
+
         try {
             System.out.println("press key");
             System.in.read();
         } catch (IOException e) {
             System.out.println("grid wait error...");
         }
+//            STEP = 0;
+//            MUST_DISPLAY = true;
+//    }
     }
 
     /**
@@ -310,18 +317,13 @@ class Grid {
         int line = squareIndex / nbColumns;
         int col = squareIndex - line * nbColumns;
 
-        if (MUST_DISPLAY) {
-            System.out.println("solve(" + squareIndex + ", " + COUNT + ");");
-            this.printGrid(line, col);
-            waitForKeypressed();
-            MUST_DISPLAY = false;
-        }
 
         STEP++;
         COUNT++;
         if (STEP >= NB_STEPS_BEFORE_DISPLAY) {
             STEP = 0;
             MUST_DISPLAY = true;
+
         }
 
         if (line >= nbLines) {
@@ -335,9 +337,7 @@ class Grid {
         if (isCorrect(line, col) && solve(squareIndex + 1)) {
             return true;
         }
-        if (line == nbLines - 1) {
-            this.printGrid(line, col);
-        }
+
 
         // If the function has not returned yet, then no solution was found
         // with the current square filled. We must try empty.
@@ -359,193 +359,309 @@ class Grid {
      * @return false if an error is visible, true otherwise.
      */
     private boolean isCorrect(int currentLine, int currentCol) {
-        boolean isCorrect = true;
-        for (int line = 0; line < nbLines; line++) {
 
-            boolean lineIsComplete = (line < currentLine || ((line == currentLine) && (currentCol == nbColumns - 1)));
 
-            if (!lineIsCorrect(line, lineIsComplete)) {
-                // Any error in any line makes the grid incorrect.
-                isCorrect = false;
+        int nbBlocksInLine = getBlocksInLine(currentLine).length;
+        int nbBlocksInCol = getBlocksInColumn(currentCol).length;
+        int nbHintsInLine = trimArray(lineHints[currentLine]).length;
+        int nbHintsInCol = trimArray(colHints[currentCol]).length;
+
+
+        if (grid[currentLine][currentCol] == FILLED) {
+            // Check that we did not create more line-groups than necessary
+            if (nbBlocksInLine > nbHintsInLine) {
+                // Too many blocks for this line
+                return false;
+            }
+            if (nbBlocksInCol > nbHintsInCol) {
+                // Too many blocks for this column
+                return false;
+            }
+
+            // Check that the current group is not too long.
+            // Test line
+            int currentSize = getBlocksInLine(currentLine)[nbBlocksInLine - 1];// Last currently changing block
+            int hint = lineHints[currentLine][nbBlocksInLine - 1]; // Corresponding hint
+            if (currentSize > hint) {
+                // Block is too long for hint.
+                return false;
+            }
+            // Test column
+            try {
+                currentSize = getBlocksInColumn(currentCol)[nbBlocksInCol - 1];// Last currently changing block
+                hint = colHints[currentCol][nbBlocksInCol - 1]; // Corresponding hint
+            } catch (ArrayIndexOutOfBoundsException e) {
+                printGrid(currentLine, currentCol);
+                return false;
+            }
+            if (currentSize > hint) {
+                // Block is too long for hint.
+                return false;
+            }
+        } else {
+            // Check that the current block is not too short.
+            int currentSize;
+            int hint;
+
+            // Test line
+            if (nbBlocksInLine >= 1) {
+                currentSize = getBlocksInLine(currentLine)[nbBlocksInLine - 1];// Last currently changing block
+                hint = lineHints[currentLine][nbBlocksInLine - 1]; // Corresponding hint
+                if (currentSize < hint) {
+                    // Block is too short for hint.
+                    return false;
+                }
+            }
+            // Test column
+            if (nbBlocksInCol >= 1) {
+                currentSize = getBlocksInColumn(currentCol)[nbBlocksInCol - 1];// Last currently changing block
+                hint = colHints[currentCol][nbBlocksInCol - 1]; // Corresponding hint
+                if (currentSize < hint) {
+                    // Block is too short for hint.
+                    return false;
+                }
+            }
+        } 
+
+        if (currentCol == nbColumns - 1) {
+
+            // Check an empty line
+            if (lineIsEmpty(currentLine)) {
+                if (lineHints[currentLine][0] != 0) {
+                    // Empty line with at least one non-zero hint is an error.
+                    return false;
+                }
+            }
+
+            // Check that there is the right amount of blocks
+            int nbHints = trimArray(lineHints[currentLine]).length;
+            int nbBlocks = getBlocksInLine(currentLine).length;
+            if (nbBlocks != nbHints) {
+                return false;
+            }
+
+
+            for (int i = 0; i < nbBlocks; i++) {
+                if (getBlocksInLine(currentLine)[i] != lineHints[currentLine][i]) {
+                    // This block does not have the required length.
+                    return false;
+                }
             }
         }
-        for (int col = 0; col < nbColumns; col++) {
 
-            boolean colIsComplete = (currentLine == nbLines - 1);
+        if (currentLine == nbLines - 1) {
+            // Col is complete, must verify the hints.
 
-            if (!colIsCorrect(col, colIsComplete)) {
-                // Any error in any column makes the grid incorrect.
-                isCorrect = false;
+
+            if (colIsEmpty(currentCol)) {
+                if (colHints[currentCol][0] != 0) {
+                    // Empty col with at least one non-zero hint is an error.
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < nbBlocksInCol; i++) {
+                if (getBlocksInColumn(currentCol)[i] != colHints[currentCol][i]) {
+                    // This block does not have the required length.
+                    return false;
+                }
             }
         }
 
-        // If no line or column is incorrect, then the grid is correct.
-        return isCorrect;
+        // If we reach this point, then no mistake has been found.
+        return true;
+    }
+
+    private int[] getBlocksInLine(int line) {
+        return getBlocksInLineOrCols(line, true);
+    }
+
+    private int[] getBlocksInColumn(int col) {
+        return getBlocksInLineOrCols(col, false);
     }
 
     /**
      * List the sizes of the blocks in a given line.
      *
-     * @param line
-     * @return the liste of the sizes of the blocks formed by the filled squares
+     * @param line the number of the line or column
+     * @param checkLines true if we want lines, false for columns
+     * @return the list of the sizes of the blocks formed by the filled squares
      * in the given line.
      */
-    private int[] getBlocksInLine(int line) {
-        int tab[] = new int[nbColumns];
-        int currentBlockIndex = 0;
-        int currentBlockSize = 0;
-        for (int col = 0; col < nbColumns; col++) {
-            // Scan the line.
+    private int[] getBlocksInLineOrCols(int line, boolean checkLines) {
+        int tab[];
+        if (checkLines) {
+            tab = new int[nbColumns];
+        } else {
+            tab = new int[nbLines];
+        }
 
-            if (grid[line][col] == FILLED) {
+        int currentBlockIndex = 0;
+
+
+        int currentBlockSize = 0;
+        int maxIndex = (checkLines ? nbColumns : nbLines);
+        for (int index = 0; index < maxIndex; index++) {
+            // Scan the line or column.
+
+            int testedValue = checkLines ? grid[line][index] : grid[index][line];
+
+            if (testedValue == FILLED) {
                 currentBlockSize++;
             } else if (currentBlockSize > 0) {
                 // Reached the end of a block.
                 tab[currentBlockIndex] = currentBlockSize;
                 currentBlockSize = 0;
                 currentBlockIndex++;
-            } else {
-                // Scanned another empty square between blocks.
             }
+            // Else, Scanned another empty square between blocks.
         }
-        return tab;
+
+        if (grid[line][nbColumns - 1] == FILLED) {
+            // The last block terminates not with a EMPTY, but with the end of the array.
+            tab[currentBlockIndex] = currentBlockSize;
+
+        }
+        return trimArray(tab);
     }
 
-    /**
-     * Test if a given line is incomplete, correct or incorrect.
-     *
-     * @param lineIndex
-     * @return true if the line is either complete or
-     * incomplete-but-without-mistakes, false if at least one mistake exists.
-     */
-    private boolean lineIsCorrect(int lineIndex, boolean lineIsComplete) {
-
-        // The current state of the grid portion we are examining
-        int currentGridExtract[] = extractLineOrCol(lineIndex, true);
-        int blockLengths[] = findBlockLengths(currentGridExtract);
-
-        int hints[] = lineHints[lineIndex];
-
-        boolean result = isCompatible(blockLengths, hints, lineIsComplete);
-        lineChecks[lineIndex] = result;
-        return result;
-    }
-
-    private boolean colIsCorrect(int colIndex, boolean colIsComplete) {
-        // The current state of the grid portion we are examining
-        int currentGridExtract[] = extractLineOrCol(colIndex, false);
-        int blockLengths[] = findBlockLengths(currentGridExtract);
-
-        int hints[] = colHints[colIndex];
-
-        boolean result = isCompatible(blockLengths, hints, colIsComplete);
-        colChecks[colIndex] = result;
-        return result;
-
-    }
-
-    /**
-     *
-     * @param index The index of the line or column that we want to extract
-     * @param processLines true when we want to process a line, false for a
-     * column
-     * @return an array representing the line or column from the grid.
-     */
-    private int[] extractLineOrCol(int index, boolean processLines) {
-
-        int array[];
-
-        if (processLines) {
-            array = new int[nbColumns];
-            for (int col = 0; col < nbColumns; col++) {
-                array[col] = grid[index][col];
-            }
-        } else {
-            array = new int[nbLines];
-            for (int line = 0; line < nbLines; line++) {
-                array[line] = grid[line][index];
-            }
-        }
-        return array;
-    }
-
-    private int[] findBlockLengths(int[] currentGridExtract) {
-        int result[] = new int[currentGridExtract.length];
-        int currentBlockSize = 0;
-        int iResult = 0;
-        for (int i = 0; i < currentGridExtract.length; i++) {
-            if (currentGridExtract[i] == FILLED) {
-                currentBlockSize++;
-            } else {
-                if (currentBlockSize > 0) {
-                    // End of a block
-                    result[iResult] = currentBlockSize;
-                    currentBlockSize = 0;
-                    iResult++;
-                }
-            }
-        }
-        if (currentGridExtract[currentGridExtract.length - 1] == FILLED) {
-            // The last block is not followed by a zero but by the end of the line.
-            result[iResult] = currentBlockSize;
-        }
-        return trimArray(result);
-    }
-
-    /**
-     * Check that the block length respect the hints.
-     *
-     * @param blockLengths
-     * @param hints
-     * @param mustBeExact when true, all hints must be found in the blocks.
-     * @return
-     */
-    private boolean isCompatible(int[] blockLengths, int[] hints, boolean mustBeExact) {
-
-        // There should not be more groups than there are hints.
-        if (blockLengths.length > hints.length) {
-            // Too many groups, error
-            return false;
-        }
-
-        if (blockLengths.length == 0) {
-            // Nothing in the line, correct unless we need it to be complete
-            if (mustBeExact && hints.length > 0) {
-                return false;
-            } else {
-                return true;
-            }
-        }
-
-        // If there is at least one block, then the last block's size is constrained by the 'mustBeExact' parameter
-        // Any block before that last one must always have precisely the right length.
-        if (blockLengths.length > 0) {
-            for (int i = 0; i < Math.min(hints.length - 1, blockLengths.length - 1); i++) {
-                if (blockLengths[i] != hints[i]) { // Every block must be precisely the right length.
-                    return false;
-                }
-            }
-
-            // Last block:
-            int lastBlockIndex = blockLengths.length - 1;
-            if (mustBeExact) {
-                if (blockLengths[lastBlockIndex] != hints[lastBlockIndex]) {
-                    // Any different length is a grid error.
-                    return false;
-                }
-            } else {
-                if (blockLengths[lastBlockIndex] > hints[lastBlockIndex]) {
-                    // Only a block too long constitutes an error.
-                    return false;
-                }
-            }
-        }
-
-        // No block or last block is incorrect.
-        return true;
-
-    }
-
+//    /**
+//     * Test if a given line is incomplete, correct or incorrect.
+//     *
+//     * @param lineIndex
+//     * @return true if the line is either complete or
+//     * incomplete-but-without-mistakes, false if at least one mistake exists.
+//     */
+//    private boolean lineIsCorrect(int lineIndex, boolean lineIsComplete) {
+//
+//        // The current state of the grid portion we are examining
+//        int currentGridExtract[] = extractLineOrCol(lineIndex, true);
+//        int blockLengths[] = findBlockLengths(currentGridExtract);
+//
+//        int hints[] = lineHints[lineIndex];
+//
+//        boolean result = isCompatible(blockLengths, hints, lineIsComplete);
+//        lineChecks[lineIndex] = result;
+//        return result;
+//    }
+//
+//    private boolean colIsCorrect(int colIndex, boolean colIsComplete) {
+//        // The current state of the grid portion we are examining
+//        int currentGridExtract[] = extractLineOrCol(colIndex, false);
+//        int blockLengths[] = findBlockLengths(currentGridExtract);
+//
+//        int hints[] = colHints[colIndex];
+//
+//        boolean result = isCompatible(blockLengths, hints, colIsComplete);
+//        colChecks[colIndex] = result;
+//        return result;
+//
+//    }
+//    /**
+//     *
+//     * @param index The index of the line or column that we want to extract
+//     * @param processLines true when we want to process a line, false for a
+//     * column
+//     * @return an array representing the line or column from the grid.
+//     */
+//    private int[] extractLineOrCol(int index, boolean processLines) {
+//
+//        int array[];
+//
+//        if (processLines) {
+//            array = new int[nbColumns];
+//            for (int col = 0; col < nbColumns; col++) {
+//                array[col] = grid[index][col];
+//            }
+//        } else {
+//            array = new int[nbLines];
+//            for (int line = 0; line < nbLines; line++) {
+//                array[line] = grid[line][index];
+//            }
+//        }
+//        return array;
+//    }
+//    private int[] findBlockLengths(int[] currentGridExtract) {
+//        int result[] = new int[currentGridExtract.length];
+//        int currentBlockSize = 0;
+//        int iResult = 0;
+//        for (int i = 0; i < currentGridExtract.length; i++) {
+//            if (currentGridExtract[i] == FILLED) {
+//                currentBlockSize++;
+//            } else {
+//                if (currentBlockSize > 0) {
+//                    // End of a block
+//                    result[iResult] = currentBlockSize;
+//                    currentBlockSize = 0;
+//                    iResult++;
+//                }
+//            }
+//        }
+//        if (currentGridExtract[currentGridExtract.length - 1] == FILLED) {
+//            // The last block is not followed by a zero but by the end of the line.
+//            result[iResult] = currentBlockSize;
+//        }
+//        return trimArray(result);
+//    }
+//    /**
+//     * Check that the block length respect the hints.
+//     *
+//     * @param blockLengths
+//     * @param hints
+//     * @param mustBeExact when true, all hints must be found in the blocks.
+//     * @return
+//     */
+//    private boolean isCompatible(int[] blockLengths, int[] hints, boolean mustBeExact) {
+//
+//        // There should not be more groups than there are hints.
+//        if (blockLengths.length > hints.length) {
+//            // Too many groups, error
+//            return false;
+//        }
+//
+//        if (blockLengths.length == 0) {
+//            // Nothing in the line, correct unless we need it to be complete
+//            if (mustBeExact && hints.length > 0) {
+//                return false;
+//            } else {
+//                return true;
+//            }
+//        }
+//
+////        System.out.println("    checking with " + blockLengths.length + " blocks and " + hints.length + " hints.");
+////        System.out.println("First block: " + blockLengths[0]);
+////        System.out.println("First hint: " + hints[0]);
+//        // If there is at least one block, then the last block's size is constrained by the 'mustBeExact' parameter
+//        // Any block before that last one must always have precisely the right length.
+//        if (blockLengths.length > 0) {
+//            for (int i = 0; i < Math.min(hints.length - 1, blockLengths.length - 1); i++) {
+////                System.out.println("    i = " + i);
+////                System.out.println("blockLengths[" + i + "] = " + blockLengths[i]);
+////                System.out.println("hints[" + i + "] = " + hints[i]);
+//                if (blockLengths[i] != hints[i]) { // Every block must be precisely the right length.
+//                    return false;
+//                }
+//            }
+//
+//            // Last block:
+//            int lastBlockIndex = blockLengths.length - 1;
+//            if (mustBeExact) {
+//                if (blockLengths[lastBlockIndex] != hints[lastBlockIndex]) {
+//                    // Any different length is a grid error.
+//                    return false;
+//                }
+//            } else {
+//                if (blockLengths[lastBlockIndex] > hints[lastBlockIndex]) {
+//                    // Only a block too long constitutes an error.
+//                    return false;
+//                }
+//            }
+//        }
+//
+//        // No block or last block is incorrect.
+//        return true;
+//
+//    }
     /**
      * Remove the trailing zeroes of an array.
      *
@@ -574,30 +690,33 @@ class Grid {
         return result;
     }
 
-    /**
-     * Find the largest number of hints for lines or columns.
-     *
-     * @param checkLines when true, scan the line; when false, scan columns.
-     * @return the size of the largest hint set for a given line or column
-     */
-    private int getNbMaxHints(boolean checkLines) {
-        int max = 0;
-        int hintsTab[][];
-        int maxIndex;
-        if (checkLines) {
-            hintsTab = lineHints;
-            maxIndex = nbLines;
+
+    private boolean lineIsEmpty(int line) {
+        int col = 0;
+        while (col < nbColumns && grid[line][col] == EMPTY) {
+            col++;
+        }
+        if (col == nbColumns) {
+            // Reach the end of the line.
+            return true;
         } else {
-            hintsTab = colHints;
-            maxIndex = nbColumns;
+            // Stopped on a non-empty square before the end of the line.
+            return false;
+        }
+    }
+
+    private boolean colIsEmpty(int col) {
+        int line = 0;
+        while (line < nbLines && grid[line][col] == EMPTY) {
+            line++;
+        }
+        if (line == nbLines) {
+            // Reach the end of the column.
+            return true;
+        } else {
+            // Stopped on a non-empty square before the end of the column.
+            return false;
         }
 
-        for (int i = 0; i < maxIndex; i++) {
-            int nbOfNonZeroHints = trimArray(hintsTab[i]).length;
-            if (nbOfNonZeroHints > max) {
-                max = nbOfNonZeroHints;
-            }
-        }
-        return max;
     }
 }
