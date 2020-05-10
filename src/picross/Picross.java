@@ -8,7 +8,7 @@ public class Picross {
 
     public static void main(String[] args) {
 
-        Grid g = new Grid("whale.txt");
+        Grid g = new Grid("grid1.txt");
 
         g.printGrid(0, 0);
 //

@@ -18,12 +18,12 @@ class Grid {
 
     public static char notProcessedCharacter = ' ';
     public static char filledCharacter = 0x0870; // Nice square but empty
-    public static char emptyCharacter = ' ';
+    public static char emptyCharacter = '.';
 
     public static final int FILLED = 1;
     public static final int EMPTY = 0;
 
-    private static int NB_STEPS_BEFORE_DISPLAY = 1000000;
+    private static int NB_STEPS_BEFORE_DISPLAY = 100000;
     private static int STEP = 0;
     private static int COUNT = 0;
     private static boolean MUST_DISPLAY = false;
@@ -371,10 +371,6 @@ class Grid {
 
         int line = squareIndex / nbColumns;
         int col = squareIndex - line * nbColumns;
-        if (line == nbLines - 1) {
-            System.out.println("Test premature termination");
-            return true;
-        }
 
         STEP++;
         COUNT++;
@@ -387,6 +383,7 @@ class Grid {
                 System.out.println("printing grid");
                 this.printGrid(line, col);
                 MUST_DISPLAY = false;
+                waitForKeypressed();
             }
         }
 
@@ -485,8 +482,8 @@ class Grid {
         }
 
         if (currentCol == nbColumns - 1) {
-            // Line is complete, must verify the hints.
 
+            // Check an empty line
             if (lineIsEmpty(currentLine)) {
                 if (lineHints[currentLine][0] != 0) {
                     // Empty line with at least one non-zero hint is an error.
@@ -494,7 +491,14 @@ class Grid {
                 }
             }
 
-            for (int i = 0; i < nbBlocksInLine; i++) {
+            // Check that there is the right amount of blocks
+            int nbHints = trimArray(lineHints[currentLine]).length;
+            int nbBlocks = getBlocksInLine(currentLine).length;
+            if (nbBlocks != nbHints) {
+                return false;
+            }
+
+            for (int i = 0; i < nbBlocks; i++) {
                 if (getBlocksInLine(currentLine)[i] != lineHints[currentLine][i]) {
                     // This block does not have the required length.
                     return false;
