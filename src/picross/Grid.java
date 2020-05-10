@@ -23,7 +23,7 @@ class Grid {
     public static final int FILLED = 1;
     public static final int EMPTY = 0;
 
-    private static int NB_STEPS_BEFORE_DISPLAY = 1000000;
+    private static int NB_STEPS_BEFORE_DISPLAY = 100000;
     private static int STEP = 0;
     private static int COUNT = 0;
     private static boolean MUST_DISPLAY = false;
@@ -113,17 +113,30 @@ class Grid {
      */
     public void printGrid(int lineMax, int colMax) {
 
-        int colHintStartIndex = nbLines - findMaxColHints();
-        int lineHintStartIndex = findMaxLineHints();
+        int maxNbLineHints = getNbMaxHints(true);
+        int maxNbColHints = getNbMaxHints(false);
 
+        String separation = "";
+        for (int i = 0; i < maxNbLineHints * 3 + nbColumns * 3 + 5; i++) {
+            separation += "-";
+        }
+        System.out.println(separation);
+
+        int lineHintStartIndex = maxNbLineHints;
         // Quadrant NE
-        for (int hintIndex = colHintStartIndex; hintIndex < nbLines; hintIndex++) {
+        int nbMaxColHints = getNbMaxHints(false);
+        for (int hintIndex = 0; hintIndex < nbMaxColHints; hintIndex++) {
+            // This part is the empty NW quadrant
             for (int j = 0; j < lineHintStartIndex; j++) {
                 System.out.print("   "); // Place the column indicators above the grid
             }
             System.out.print(" "); // Take into account the vertical separator after the line indications
+
+            // This part is the actual NE quadrant
             for (int col = 0; col < nbColumns; col++) {
-                int hint = this.getColHint(col, hintIndex);
+                int nbColHints = trimArray(colHints[col]).length;
+                // Align the hints on the last line.
+                int hint = this.getColHint(col, hintIndex + (nbColHints - maxNbColHints));
                 if (hint == 0) {
                     System.out.print("   "); // Spaceholder for empty hint
                 } else {
@@ -143,10 +156,12 @@ class Grid {
         System.out.println("");
 
         // Quadrants SW and SE
+        int nbMaxLineHints = getNbMaxHints(true);
         for (int line = 0; line < nbLines; line++) {
+            int nbLineHints = trimArray(lineHints[line]).length;
             // Display the hints
-            for (int hintIndex = nbColumns - findMaxLineHints(); hintIndex < nbColumns; hintIndex++) {
-                int hint = lineHints[line][hintIndex];// this.getLineHint(line, hintIndex);
+            for (int hintIndex = 0; hintIndex < nbMaxLineHints; hintIndex++) {
+                int hint = this.getLineHint(line, hintIndex + (nbLineHints - maxNbLineHints));
                 if (hint == 0) {
                     System.out.print("   "); // Spaceholder for empty hint
                 } else {
@@ -198,63 +213,16 @@ class Grid {
     }
 
     /**
-     * To be used only after moveHintsToEndOfTables().
-     *
-     * @return
-     */
-    private int findMaxColHints() {
-        int max = 0;
-
-        for (int col = 0; col < nbColumns; col++) {
-
-            int nbHints = nbLines;
-            int i = 0;
-            while (i < nbLines && colHints[col][i] == 0) {
-                // this position does not contain a hint, so this is one fewer possible hint.
-                nbHints--;
-                i++;
-            }
-            if (nbHints > max) {
-                max = nbHints;
-            }
-        }
-        return max;
-    }
-
-    /**
-     * To be used only after moveHintsToEndOfTables().
-     *
-     * @return
-     */
-    private int findMaxLineHints() {
-        int max = 0;
-
-        for (int line = 0; line < nbLines; line++) {
-
-            int nbHints = nbColumns;
-            int i = 0;
-            while (i < nbColumns && lineHints[line][i] == 0) {
-                // this position does not contain a hint, so this is one fewer possible hint.
-                nbHints--;
-                i++;
-            }
-            if (nbHints > max) {
-                max = nbHints;
-            }
-        }
-        return max;
-    }
-
-    /**
      * Get the n-th hint for the given column.
      *
      * @param col
      * @param rank
-     * @return
+     * @return 0 if the rank is less than 0 (not inclusive) or if rank
+     * is too large.
      */
     private int getColHint(int col, int rank) {
-        if (colHints[col].length < rank) {
-            return -1;
+        if (rank < 0 || colHints[col].length < rank) {
+            return 0;
         }
         return colHints[col][rank];
     }
@@ -267,24 +235,10 @@ class Grid {
      * @return
      */
     private int getLineHint(int line, int rank) {
-        if (lineHints[line].length <= rank) {
-            return -1;
+        if (rank < 0 || lineHints[line].length < rank) {
+            return 0;
         }
-        // Do not take into account the leading zeroes.
-        int rankForZero = 0;
-        while (lineHints[line][rankForZero] == 0) {
-            System.out.println("lineHints[" + line + "][" + rankForZero + "] == 0");
-            rankForZero++;
-            rank++;
-        }
-        try {
-            System.out.print("returning lineHints[" + line + "][" + rank + "] which is ");
-            System.out.println(lineHints[line][rank]);
-            return lineHints[line][rank];
-        } catch (ArrayIndexOutOfBoundsException e) {
-            System.out.println("ArrayIndexOutOfBoundsException: " + e);
-            return -1;
-        }
+        return lineHints[line][rank];
     }
 
     /**
@@ -312,21 +266,6 @@ class Grid {
         }
     }
 
-    /**
-     * Move the hints closer to the gird, just for a better display
-     *
-     */
-    private void moveHintsToEndOfTables() {
-
-        for (int hintTab[] : colHints) {
-            moveValuesToEndOfTab(hintTab);
-        }
-        for (int hintTab[] : lineHints) {
-            moveValuesToEndOfTab(hintTab);
-
-        }
-    }
-
     private boolean tabIsOnlyZeroes(int[] tab) {
         for (int i = 0; i < tab.length; i++) {
             if (tab[i] != 0) {
@@ -337,17 +276,11 @@ class Grid {
     }
 
     private void waitForKeypressed() {
-        STEP++;
-        COUNT++;
-        if (STEP >= NB_STEPS_BEFORE_DISPLAY) {
-            try {
-                System.out.println("press key");
-                System.in.read();
-            } catch (IOException e) {
-                System.out.println("grid wait error...");
-            }
-            STEP = 0;
-            MUST_DISPLAY = true;
+        try {
+            System.out.println("press key");
+            System.in.read();
+        } catch (IOException e) {
+            System.out.println("grid wait error...");
         }
     }
 
@@ -356,7 +289,7 @@ class Grid {
      *
      */
     public void solve() {
-        System.out.println("solve();");
+        System.out.println("solve(0);");
         this.solve(0);
         printGrid(nbLines, nbColumns);
     }
@@ -377,8 +310,19 @@ class Grid {
         int line = squareIndex / nbColumns;
         int col = squareIndex - line * nbColumns;
 
-//        this.printGrid(line, col);
-        waitForKeypressed();
+        if (MUST_DISPLAY) {
+            System.out.println("solve(" + squareIndex + ", " + COUNT + ");");
+            this.printGrid(line, col);
+            waitForKeypressed();
+            MUST_DISPLAY = false;
+        }
+
+        STEP++;
+        COUNT++;
+        if (STEP >= NB_STEPS_BEFORE_DISPLAY) {
+            STEP = 0;
+            MUST_DISPLAY = true;
+        }
 
         if (line >= nbLines) {
             // Found a soution
@@ -386,7 +330,6 @@ class Grid {
             return true;
         }
 
-//        System.out.println("Filling the first square");
         // Try to fill the square first
         grid[line][col] = FILLED;
         if (isCorrect(line, col) && solve(squareIndex + 1)) {
@@ -394,13 +337,6 @@ class Grid {
         }
         if (line == nbLines - 1) {
             this.printGrid(line, col);
-        }
-        waitForKeypressed();
-
-        if (MUST_DISPLAY) {
-            System.out.println("solve(" + squareIndex + ", " + COUNT + ");");
-            this.printGrid(line, col);
-            MUST_DISPLAY = false;
         }
 
         // If the function has not returned yet, then no solution was found
@@ -423,7 +359,6 @@ class Grid {
      * @return false if an error is visible, true otherwise.
      */
     private boolean isCorrect(int currentLine, int currentCol) {
-//        System.out.println("check is correct...");
         boolean isCorrect = true;
         for (int line = 0; line < nbLines; line++) {
 
@@ -431,36 +366,21 @@ class Grid {
 
             if (!lineIsCorrect(line, lineIsComplete)) {
                 // Any error in any line makes the grid incorrect.
-//                System.out.println("    line " + line + " is not correct");
                 isCorrect = false;
             }
         }
         for (int col = 0; col < nbColumns; col++) {
 
             boolean colIsComplete = (currentLine == nbLines - 1);
-//            if (currentCol == 3) {
-//                System.out.println("column 3: isComplete ? " + colIsComplete);
-//            }
 
             if (!colIsCorrect(col, colIsComplete)) {
                 // Any error in any column makes the grid incorrect.
                 isCorrect = false;
-//                System.out.println("    col " + col + " is not correct");
             }
         }
 
-//        System.out.println("check is correct: " + isCorrect + ".");
         // If no line or column is incorrect, then the grid is correct.
         return isCorrect;
-    }
-
-    /**
-     * Check that the grid is completely solved.
-     *
-     * @return true when all hints are verified.
-     */
-    private boolean isSolved() {
-        return false;
     }
 
     /**
@@ -500,7 +420,6 @@ class Grid {
      */
     private boolean lineIsCorrect(int lineIndex, boolean lineIsComplete) {
 
-//        System.out.println("checking line " + lineIndex + " with completeness parameter " + lineIsComplete);
         // The current state of the grid portion we are examining
         int currentGridExtract[] = extractLineOrCol(lineIndex, true);
         int blockLengths[] = findBlockLengths(currentGridExtract);
@@ -547,10 +466,6 @@ class Grid {
                 array[line] = grid[line][index];
             }
         }
-//        for (int i = 0; i < array.length; i++) {
-//            System.out.print(" " + array[i]);
-//        }
-//        System.out.println(" extracted.");
         return array;
     }
 
@@ -602,16 +517,10 @@ class Grid {
             }
         }
 
-//        System.out.println("    checking with " + blockLengths.length + " blocks and " + hints.length + " hints.");
-//        System.out.println("First block: " + blockLengths[0]);
-//        System.out.println("First hint: " + hints[0]);
         // If there is at least one block, then the last block's size is constrained by the 'mustBeExact' parameter
         // Any block before that last one must always have precisely the right length.
         if (blockLengths.length > 0) {
             for (int i = 0; i < Math.min(hints.length - 1, blockLengths.length - 1); i++) {
-//                System.out.println("    i = " + i);
-//                System.out.println("blockLengths[" + i + "] = " + blockLengths[i]);
-//                System.out.println("hints[" + i + "] = " + hints[i]);
                 if (blockLengths[i] != hints[i]) { // Every block must be precisely the right length.
                     return false;
                 }
@@ -663,5 +572,32 @@ class Grid {
         }
 
         return result;
+    }
+
+    /**
+     * Find the largest number of hints for lines or columns.
+     *
+     * @param checkLines when true, scan the line; when false, scan columns.
+     * @return the size of the largest hint set for a given line or column
+     */
+    private int getNbMaxHints(boolean checkLines) {
+        int max = 0;
+        int hintsTab[][];
+        int maxIndex;
+        if (checkLines) {
+            hintsTab = lineHints;
+            maxIndex = nbLines;
+        } else {
+            hintsTab = colHints;
+            maxIndex = nbColumns;
+        }
+
+        for (int i = 0; i < maxIndex; i++) {
+            int nbOfNonZeroHints = trimArray(hintsTab[i]).length;
+            if (nbOfNonZeroHints > max) {
+                max = nbOfNonZeroHints;
+            }
+        }
+        return max;
     }
 }
