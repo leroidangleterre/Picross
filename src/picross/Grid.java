@@ -16,17 +16,22 @@ import java.io.IOException;
  */
 class Grid {
 
-    public static char notProcessedCharacter = ' ';
+    private int maxLineReached;
+
+    public static char notProcessedCharacter = '.';
     public static char filledCharacter = 0x0870; // Nice square but empty
-    public static char emptyCharacter = '.';
+    public static char emptyCharacter = ' ';
 
     public static final int FILLED = 1;
     public static final int EMPTY = 0;
 
-    private static int NB_STEPS_BEFORE_DISPLAY = 100000;
+    private static int NB_STEPS_BEFORE_DISPLAY = -1; // Negative value means no stop until completion.
     private static int STEP = 0;
     private static int COUNT = 0;
     private static boolean MUST_DISPLAY = false;
+
+    private long currentTimeStamp; // in milliseconds.
+    private long previousTimestamp;
 
     int nbLines;
     int nbColumns;
@@ -37,6 +42,8 @@ class Grid {
     boolean colChecks[];
 
     public Grid(String filename) {
+        this.currentTimeStamp = System.currentTimeMillis();
+        this.previousTimestamp = 0;
         try {
             String path = "C:/Users/arthurmanoha/Documents/Programmation/Java/Picross/src/picross/";
             BufferedReader reader = new BufferedReader(new FileReader(path + filename));
@@ -100,6 +107,8 @@ class Grid {
         } catch (IOException e) {
             System.out.println("Error: IO exception");
         }
+
+        maxLineReached = 0;
     }
 
     /**
@@ -190,11 +199,11 @@ class Grid {
                 }
             }
             System.out.print("|");
-            if (lineChecks[line] == false) {
-                System.out.print(" ! ");
-            } else {
-                System.out.print(" ok");
-            }
+//            if (lineChecks[line] == false) {
+//                System.out.print(" ! ");
+//            } else {
+//                System.out.print(" ok");
+//            }
             System.out.println("");
         }
 
@@ -202,13 +211,13 @@ class Grid {
             System.out.print("   ");
         }
         System.out.print("  ");
-        for (int i = 0; i < nbColumns; i++) {
-            if (colChecks[i] == false) {
-                System.out.print("!  ");
-            } else {
-                System.out.print("ok ");
-            }
-        }
+//        for (int i = 0; i < nbColumns; i++) {
+//            if (colChecks[i] == false) {
+//                System.out.print("!  ");
+//            } else {
+//                System.out.print("ok ");
+//            }
+//        }
         System.out.println("");
     }
 
@@ -227,7 +236,6 @@ class Grid {
         return colHints[col][rank];
     }
 
-
     /**
      * Get the n-th hint for the given line.
      *
@@ -241,7 +249,6 @@ class Grid {
         }
         return lineHints[line][rank];
     }
-
 
     /**
      * Shift all values toward the end of a table.
@@ -267,7 +274,6 @@ class Grid {
             tab[indexForZero] = 0;
         }
     }
-
 
     private boolean tabIsOnlyZeroes(int[] tab) {
         for (int i = 0; i < tab.length; i++) {
@@ -296,9 +302,15 @@ class Grid {
      *
      */
     public void solve() {
-        System.out.println("solve(0);");
-        this.solve(0);
-        printGrid(nbLines, nbColumns);
+        if (checkSums()) {
+
+            System.out.println("solve(0);");
+            this.solve(0);
+            printGrid(nbLines, nbColumns);
+            System.out.println("Solve reached line " + maxLineReached);
+        } else {
+            System.out.println("Check sum error.");
+        }
     }
 
     /**
@@ -317,13 +329,31 @@ class Grid {
         int line = squareIndex / nbColumns;
         int col = squareIndex - line * nbColumns;
 
+        if (line > maxLineReached) {
+            maxLineReached = line;
+            System.out.println("Reaching line " + maxLineReached);
+        }
+
+        currentTimeStamp = System.currentTimeMillis();
+        if (currentTimeStamp - previousTimestamp > 1000) {
+            // One second has passed since last refresh.
+            previousTimestamp = currentTimeStamp;
+            MUST_DISPLAY = true;
+            System.out.println("solve(" + squareIndex + "), " + COUNT
+                    + ", max line reached: " + maxLineReached);
+        }
 
         STEP++;
         COUNT++;
-        if (STEP >= NB_STEPS_BEFORE_DISPLAY) {
+        if (NB_STEPS_BEFORE_DISPLAY > 0 && STEP >= NB_STEPS_BEFORE_DISPLAY) {
             STEP = 0;
             MUST_DISPLAY = true;
 
+        }
+        if (MUST_DISPLAY) {
+            printGrid(line, col);
+            MUST_DISPLAY = false;
+//            waitForKeypressed();
         }
 
         if (line >= nbLines) {
@@ -337,7 +367,6 @@ class Grid {
         if (isCorrect(line, col) && solve(squareIndex + 1)) {
             return true;
         }
-
 
         // If the function has not returned yet, then no solution was found
         // with the current square filled. We must try empty.
@@ -360,12 +389,10 @@ class Grid {
      */
     private boolean isCorrect(int currentLine, int currentCol) {
 
-
         int nbBlocksInLine = getBlocksInLine(currentLine).length;
         int nbBlocksInCol = getBlocksInColumn(currentCol).length;
         int nbHintsInLine = trimArray(lineHints[currentLine]).length;
         int nbHintsInCol = trimArray(colHints[currentCol]).length;
-
 
         if (grid[currentLine][currentCol] == FILLED) {
             // Check that we did not create more line-groups than necessary
@@ -387,13 +414,8 @@ class Grid {
                 return false;
             }
             // Test column
-            try {
-                currentSize = getBlocksInColumn(currentCol)[nbBlocksInCol - 1];// Last currently changing block
-                hint = colHints[currentCol][nbBlocksInCol - 1]; // Corresponding hint
-            } catch (ArrayIndexOutOfBoundsException e) {
-                printGrid(currentLine, currentCol);
-                return false;
-            }
+            currentSize = getBlocksInColumn(currentCol)[nbBlocksInCol - 1];// Last currently changing block
+            hint = colHints[currentCol][nbBlocksInCol - 1]; // Corresponding hint
             if (currentSize > hint) {
                 // Block is too long for hint.
                 return false;
@@ -421,7 +443,7 @@ class Grid {
                     return false;
                 }
             }
-        } 
+        }
 
         if (currentCol == nbColumns - 1) {
 
@@ -440,7 +462,6 @@ class Grid {
                 return false;
             }
 
-
             for (int i = 0; i < nbBlocks; i++) {
                 if (getBlocksInLine(currentLine)[i] != lineHints[currentLine][i]) {
                     // This block does not have the required length.
@@ -451,7 +472,6 @@ class Grid {
 
         if (currentLine == nbLines - 1) {
             // Col is complete, must verify the hints.
-
 
             if (colIsEmpty(currentCol)) {
                 if (colHints[currentCol][0] != 0) {
@@ -483,12 +503,12 @@ class Grid {
     /**
      * List the sizes of the blocks in a given line.
      *
-     * @param line the number of the line or column
+     * @param lineOrCol the number of the line or column
      * @param checkLines true if we want lines, false for columns
      * @return the list of the sizes of the blocks formed by the filled squares
      * in the given line.
      */
-    private int[] getBlocksInLineOrCols(int line, boolean checkLines) {
+    private int[] getBlocksInLineOrCols(int lineOrCol, boolean checkLines) {
         int tab[];
         if (checkLines) {
             tab = new int[nbColumns];
@@ -498,13 +518,12 @@ class Grid {
 
         int currentBlockIndex = 0;
 
-
         int currentBlockSize = 0;
         int maxIndex = (checkLines ? nbColumns : nbLines);
         for (int index = 0; index < maxIndex; index++) {
             // Scan the line or column.
 
-            int testedValue = checkLines ? grid[line][index] : grid[index][line];
+            int testedValue = checkLines ? grid[lineOrCol][index] : grid[index][lineOrCol];
 
             if (testedValue == FILLED) {
                 currentBlockSize++;
@@ -517,7 +536,9 @@ class Grid {
             // Else, Scanned another empty square between blocks.
         }
 
-        if (grid[line][nbColumns - 1] == FILLED) {
+        // Special test for a square that is the last of a line or column.
+        if ((checkLines && grid[lineOrCol][nbColumns - 1] == FILLED)
+                || ((!checkLines) && grid[nbLines - 1][lineOrCol] == FILLED)) {
             // The last block terminates not with a EMPTY, but with the end of the array.
             tab[currentBlockIndex] = currentBlockSize;
 
@@ -690,7 +711,6 @@ class Grid {
         return result;
     }
 
-
     private boolean lineIsEmpty(int line) {
         int col = 0;
         while (col < nbColumns && grid[line][col] == EMPTY) {
@@ -718,5 +738,59 @@ class Grid {
             return false;
         }
 
+    }
+
+    /**
+     * Find the largest number of hints for lines or columns.
+     *
+     * @param checkLines when true, scan the line; when false, scan columns.
+     * @return the size of the largest hint set for a given line or column
+     */
+    private int getNbMaxHints(boolean checkLines) {
+        int max = 0;
+        int hintsTab[][];
+        int maxIndex;
+        if (checkLines) {
+            hintsTab = lineHints;
+            maxIndex = nbLines;
+        } else {
+            hintsTab = colHints;
+            maxIndex = nbColumns;
+        }
+
+        for (int i = 0; i < maxIndex; i++) {
+            int nbOfNonZeroHints = trimArray(hintsTab[i]).length;
+            if (nbOfNonZeroHints > max) {
+                max = nbOfNonZeroHints;
+            }
+        }
+        return max;
+    }
+
+    /**
+     * Try and detect input file errors by comparing the sum of all line hints
+     * to that of all column hints.
+     *
+     * @return true if the sums match, false if they do not, in which case the
+     * grid input
+     * is obviously faulty.
+     * This check does NOT a guarantee that the grid has a solution.
+     */
+    private boolean checkSums() {
+
+        int lineSum = 0;
+        int colSum = 0;
+
+        for (int hintLine[] : lineHints) {
+            for (int hint : hintLine) {
+                lineSum += hint;
+            }
+        }
+        for (int colHint[] : colHints) {
+            for (int hint : colHint) {
+                colSum += hint;
+            }
+        }
+        return lineSum == colSum;
     }
 }
