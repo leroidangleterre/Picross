@@ -14,7 +14,7 @@ import java.io.IOException;
  *
  * @author arthurmanoha
  */
-class Grid {
+public class Grid {
 
     private int maxLineReached;
 
@@ -302,12 +302,17 @@ class Grid {
      *
      */
     public void solve() {
+
+        long startTime = System.currentTimeMillis();
+
         if (checkSums()) {
 
             System.out.println("solve(0);");
             this.solve(0);
             printGrid(nbLines, nbColumns);
-            System.out.println("Solve reached line " + maxLineReached);
+            long endTime = System.currentTimeMillis();
+            long time = endTime - startTime;
+            System.out.println("Solved. Took " + (time / 1000) + "s (" + time + "ms).");
         } else {
             System.out.println("Check sum error.");
         }
@@ -329,19 +334,18 @@ class Grid {
         int line = squareIndex / nbColumns;
         int col = squareIndex - line * nbColumns;
 
-        if (line > maxLineReached) {
-            maxLineReached = line;
-            System.out.println("Reaching line " + maxLineReached);
-        }
-
+//        if (line > maxLineReached) {
+//            maxLineReached = line;
+//            System.out.println("Reaching line " + maxLineReached);
+//        }
         currentTimeStamp = System.currentTimeMillis();
-        if (currentTimeStamp - previousTimestamp > 1000) {
-            // One second has passed since last refresh.
-            previousTimestamp = currentTimeStamp;
-            MUST_DISPLAY = true;
-            System.out.println("solve(" + squareIndex + "), " + COUNT
-                    + ", max line reached: " + maxLineReached);
-        }
+//        if (currentTimeStamp - previousTimestamp > 1000) {
+//            // One second has passed since last refresh.
+//            previousTimestamp = currentTimeStamp;
+//            MUST_DISPLAY = true;
+//            System.out.println("solve(" + squareIndex + "), " + COUNT
+//                    + ", max line reached: " + maxLineReached);
+//        }
 
         STEP++;
         COUNT++;
@@ -358,7 +362,7 @@ class Grid {
 
         if (line >= nbLines) {
             // Found a soution
-            System.out.println("line = " + line + ", nbLines = " + nbLines + ", returning true");
+//            System.out.println("line = " + line + ", nbLines = " + nbLines + ", returning true");
             return true;
         }
 
@@ -792,5 +796,9 @@ class Grid {
             }
         }
         return lineSum == colSum;
+    }
+
+    public int[][] getCopy() {
+        return grid.clone();
     }
 }

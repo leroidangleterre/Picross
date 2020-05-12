@@ -1,5 +1,7 @@
 package picross;
 
+import javax.swing.JFrame;
+
 /**
  *
  * @author arthurmanoha
@@ -12,6 +14,9 @@ public class Picross {
         Grid g = new Grid("tank.txt");
 
         g.printGrid(0, 0);
+
+        Window window = new Window(g);
+
         g.solve();
     }
 
